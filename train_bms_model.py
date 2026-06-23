@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import os
 import pathlib
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 print(f"Using TensorFlow version: {tf.__version__}")
 
@@ -16,10 +18,14 @@ except FileNotFoundError:
     print("Error: Please make sure your Excel files are in this folder.")
     exit()
 
-# --- 2. Convert Excel Columns Directly to NumPy Arrays (No Scaling!) ---
+# --- 2. Convert Excel Columns to NumPy Arrays & Apply Normalization ---
 # Inputs: Voltage, Current, Temperature
 x_train = train_df[['Voltage_V', 'Current_A', 'Temperature_C']].values
 x_test = test_df[['Voltage_V', 'Current_A', 'Temperature_C']].values
+
+scaler = MinMaxScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
 
 # Outputs: State of Charge (SoC), State of Health (SoH)
 y_train = train_df[['SoC_percent', 'SoH_percent']].values
@@ -38,7 +44,13 @@ quantize_model = tfmot.quantization.keras.quantize_model
 q_aware_model = quantize_model(model)
 q_aware_model.compile(optimizer='adam', loss='mean_squared_error')
 
-q_aware_model.fit(x_train, y_train, epochs=1000, batch_size=16, verbose='auto')
+early_stopping = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss',
+    patience=30,          # Stops training if validation loss doesn't improve for 20 epochs
+    restore_best_weights=True # Keeps the weights from the epoch with the lowest val_loss
+)
+
+q_aware_model.fit(x_train, y_train, epochs=1000, batch_size=16, verbose='auto', validation_split=0.2, callbacks=[early_stopping])
 
 predicted_values = q_aware_model.predict(x_test)
 actual_values = y_test
@@ -47,12 +59,21 @@ print(f"Actual values are = {actual_values}")
 
 model_path = "Final_model"
 tf.saved_model.save(q_aware_model, model_path)
-size_bytes = os.path.getsize(model_path)
+# Correctly calculate the sum of all file sizes in the SavedModel folder
+def get_dir_size(path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            total_size += os.path.getsize(fp)
+    return total_size
+
+size_bytes = get_dir_size(model_path)
 size_kb = size_bytes / 1024
-size_mb = size_bytes / (1024 * 1024)
-print(f"Size: {size_bytes:.2f} B")
-print(f"Size: {size_kb:.2f} KB")
-print(f"Size: {size_mb:.2f} MB")
+print("="*100)
+print(f"Original SavedModel Size: {size_bytes:.2f} Bytes")
+print(f"Original SavedModel Size: {size_kb:.2f} KB")
+print("="*100)
 print(q_aware_model.summary())
 
 representative_data = x_train[::100].astype(np.float32)
@@ -115,22 +136,23 @@ print(interpreter.get_input_details())
 print('\nOutput details:')
 print(interpreter.get_output_details())
 y_pred = tflite_predict_simple(interpreter, x_test)
-print("First 10 expected:")
-print(y_test[:10])
 
-print("First 10 TFLite predictions:")
-print(y_pred[:10])
 error = np.abs(y_test - y_pred)
-
 tolerance = 4.5
 
+# Calculate metrics
+tflite_mae = mean_absolute_error(y_test, y_pred)
+tflite_rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 accuracy = np.mean(error <= tolerance) * 100
 
-print(f"TFLite Accuracy: {accuracy:.2f}%")
+# Print clean, standardized metrics
+print("\n================ TFLite Model Evaluation ================")
+print(f"TFLite Accuracy (within {tolerance}% tolerance): {accuracy:.2f}%")
+print(f"Mean Absolute Error (MAE): {tflite_mae:.4f}%")
+print(f"Root Mean Squared Error (RMSE): {tflite_rmse:.4f}%")
 print(f"Max Error: {np.max(error):.6f}")
 print(f"Mean Error: {np.mean(error):.6f}")
-
-import os
+print("=========================================================\n")
 
 tflite_path = "lite/model.tflite"
 
@@ -146,8 +168,8 @@ c_array = ",\n  ".join(hex_lines)
 with open("model.h", "w") as f:
     f.write('// Auto-generated QAT TensorFlow Lite Model Array\n\n')
     f.write('#ifndef MODEL_H\n#define MODEL_H\n\n')
-    f.write('const unsigned char sine_model[] = {\n  ' + c_array + '\n};\n\n')
-    f.write(f'const unsigned int sine_model_len = {len(tflite_model)};\n\n')
+    f.write('const unsigned char battery_model[] = {\n  ' + c_array + '\n};\n\n')
+    f.write(f'const unsigned int battery_model_len = {len(tflite_model)};\n\n')
     f.write('#endif // MODEL_H\n')
 
 print("C++ model.h file successfully generated!")
