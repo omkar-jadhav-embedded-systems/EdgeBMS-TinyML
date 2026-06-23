@@ -27,9 +27,9 @@ This project solves this by using a Deep Neural Network (DNN) to map raw physica
 
 By utilizing an adaptive Normalization layer, a deep architecture (`32 -> 32 -> 16 -> 8 -> 2`), and a custom learning rate, the model achieves industry-viable accuracy while maintaining an ultra-low memory footprint.
 
-* **Accuracy (within 4.5% tolerance):** `91.50%`
-* **Mean Absolute Error:** `~1.85%`
-* **Optimized Model Size:** `6.15 KB` (Fits easily in the flash memory of modern microcontrollers)
+* **Accuracy (within 4.5% tolerance):** `98.12%`
+* **Mean Absolute Error:** `~1.50%`
+* **Optimized Model Size:** `6.38 KB` (Fits easily in the flash memory of modern microcontrollers)
 * **Model Parameters:** `1,882` (Quantized to INT8)
 
 ---
@@ -39,11 +39,11 @@ By utilizing an adaptive Normalization layer, a deep architecture (`32 -> 32 -> 
 This repository demonstrates a complete, production-ready AI-to-Embedded pipeline:
 
 1. **Data Ingestion & Preprocessing:** Loads raw battery operational data from Excel datasets.
-2. **Auto-Scaling:** Uses a Keras `Normalization` layer to internally standardize features (Voltage, Current, Temp) with wildly different scales, eliminating the need for external libraries on the embedded device.
+2. **Auto-Scaling:** Uses `scikit-learn's MinMaxScaler` layer to internally standardize features (Voltage, Current, Temp) with wildly different scales, eliminating the need for external libraries on the embedded device.
 3. **Deep Learning Architecture:** Trains a multi-layer Keras Sequential model.
 4. **Quantization-Aware Training (QAT):** Simulates low-precision (INT8) math during training to ensure the model doesn't lose accuracy when converted for hardware.
 5. **TFLite Conversion:** Converts the trained model into a highly optimized, fully integer `.tflite` flatbuffer using a representative dataset for calibration.
-6. **C++ Code Generation:** Automatically serializes the binary `.tflite` model into a standard C-style hexadecimal array (`bms_model.h`) for direct compilation into embedded C/C++ firmware.
+6. **C++ Code Generation:** Automatically serializes the binary `.tflite` model into a standard C-style hexadecimal array (`model.h`) for direct compilation into embedded C/C++ firmware.
 
 ---
 
