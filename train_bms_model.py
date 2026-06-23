@@ -93,9 +93,11 @@ tflite_model = converter.convert()
 tflite_model_file = pathlib.Path('lite/model.tflite')
 tflite_model_file.parent.mkdir(parents=True, exist_ok=True)
 size_opti_model = tflite_model_file.write_bytes(tflite_model)
-print(f"Size of optimized model = {size_opti_model}")
-print(f"Size of optimized model in KB= {size_opti_model / 1024.0}")
-print(f"Size of optimized model in MB= {size_opti_model / (1024.0 * 1024.0)}")
+print("="*100)
+print(f"Size of optimized model = {size_opti_model} B")
+print(f"Size of optimized model = {size_opti_model / 1024.0} KB")
+print(f"Size of optimized model = {size_opti_model / (1024.0 * 1024.0)} MB")
+print("="*100)
 
 y_pred = q_aware_model.predict(x_test, verbose=0)
 
@@ -104,11 +106,11 @@ error = np.abs(y_test - y_pred)
 tolerance = 4.5
 
 accuracy = np.mean(error <= tolerance) * 100
-
+print("="*100)
 print(f"TensorFlow Accuracy: {accuracy:.2f}%")
 print(f"Max Error: {np.max(error):.6f}")
 print(f"Mean Error: {np.mean(error):.6f}")
-
+print("="*100)
 
 def tflite_predict_simple(interpreter, x_test):
     input_idx = interpreter.get_input_details()[0]['index']
