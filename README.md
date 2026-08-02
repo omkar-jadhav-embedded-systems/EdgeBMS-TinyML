@@ -73,7 +73,7 @@ pip install tensorflow tensorflow-model-optimization pandas openpyxl numpy
 
 ### 2. Clone the Repository
 ```bash
-git clone https://github.com/[Your-Username]/EdgeBMS-TinyML.git
+git clone https://github.com/omkar-jadhav-embedded-systems/EdgeBMS-TinyML.git
 cd EdgeBMS-TinyML
 ```
 
